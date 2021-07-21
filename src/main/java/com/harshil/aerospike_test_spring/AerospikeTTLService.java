@@ -16,11 +16,11 @@ public class AerospikeTTLService {
         long startTime = System.currentTimeMillis();
 
         Key key = new Key("test", "userHitCounter", userId);
-        Record record = client.get(new Policy(), key);
+        Record getRecord = client.get(new Policy(), key);
         int initialFileCount = 0;
         boolean recordAlreadyExists = true;
         try {
-            initialFileCount = record.getInt("FileCount");
+            initialFileCount = getRecord.getInt("FileCount");
         } catch (Exception e) {
             recordAlreadyExists = false;
         }
@@ -34,7 +34,7 @@ public class AerospikeTTLService {
             } else if (initialFileCount + fileCount > 15) {
                 System.out.println ("You can only upload " + (15-initialFileCount) + " files for now, try again in 30 mins to upload more.");
             } else {
-                Record record1 = client.operate(writePolicy, key, Operation.add(fileCountBin));
+                client.operate(writePolicy, key, Operation.add(fileCountBin));
             }
         } else {
             client.put(writePolicy, key, fileCountBin);
@@ -45,8 +45,8 @@ public class AerospikeTTLService {
 
         System.out.println("Time taken in sec: " + (endTime - startTime)/1000);
 
-        Record record2 = client.get(new Policy(), key);
-        System.out.println("For user " + userId +", filecount is " + record2.getInt("FileCount"));
+        Record updatedRecord = client.get(new Policy(), key);
+        System.out.println("For user " + userId +", filecount is " + updatedRecord.getInt("FileCount"));
 
         client.close();
 
