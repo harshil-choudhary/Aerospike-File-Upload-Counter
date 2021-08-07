@@ -2,13 +2,25 @@ package com.harshil.aerospike_test_spring;
 
 import com.aerospike.client.*;
 import com.aerospike.client.policy.Policy;
-import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.WritePolicy;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 
 @Service
 public class AerospikeTTLService {
+
+    @Value("${fileNumberLimit}")
+    private int fileNumberLimit;
+
+    @Value("${aerospikeFileNumberLimit}")
+    private int aerospikeFileNumberLimit;
+
+    @Value("${aerospikeTTL}")
+    private int aerospikeTTL;
+
+    @Value("${AEROSPIKE_NAMESPACE}")
+    private String AEROSPIKE_NAMESPACE;
 
     public String checkHits (String userId, int  fileCount) {
 
@@ -16,7 +28,7 @@ public class AerospikeTTLService {
 
         long startTime = System.currentTimeMillis();
 
-        Key key = new Key("test", "userHitCounter", userId);
+        Key key = new Key(AEROSPIKE_NAMESPACE, "userHitCounter", userId);
         Record getRecord = client.get(new Policy(), key);
         int initialFileCount = 0;
         boolean recordAlreadyExists = true;
@@ -31,10 +43,10 @@ public class AerospikeTTLService {
 
 
         if (recordAlreadyExists) {
-            if (initialFileCount + fileCount == 20) {
-                System.out.println ("You have reached your limit for uploading files, try again in 30 mins.");
-            } else if (initialFileCount + fileCount > 15) {
-                System.out.println ("You can only upload " + (15-initialFileCount) + " files for now, try again in 30 mins to upload more.");
+            if (initialFileCount + fileCount == aerospikeFileNumberLimit + fileNumberLimit) {
+                throw new TooManyRequestsException("You have reached your limit for uploading files, try again in 30 mins.");
+            } else if (initialFileCount + fileCount > aerospikeFileNumberLimit) {
+                throw new TooManyRequestsException("You can only upload " + (aerospikeFileNumberLimit-initialFileCount) + " files for now, try again in 30 mins to upload more.");
             } else {
                 WritePolicy updateWritePolicy = new WritePolicy();
                 updateWritePolicy.expiration = -2;
@@ -42,6 +54,7 @@ public class AerospikeTTLService {
             }
         } else {
             WritePolicy newWritePolicy = new WritePolicy();
+            newWritePolicy.expiration = aerospikeTTL;
             client.put(newWritePolicy, key, fileCountBin);
             System.out.println(key + " " + fileCountBin);
         }
